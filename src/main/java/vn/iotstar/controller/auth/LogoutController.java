@@ -4,18 +4,19 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 
 @Controller
-@RequestMapping("/auth")
 public class LogoutController {
 
-    public static final String COOKIE_REMEMBER = "userName";
+    private static final String LOGIN_PAGE = "/auth/login";
+    private static final String COOKIE_REMEMBER = "userName";
 
-    @GetMapping("/logout")
+    @GetMapping("/auth/logout")
     public String logout(HttpServletRequest request, HttpServletResponse response) {
+
         // Xoá session
         HttpSession session = request.getSession(false);
         if (session != null) {
@@ -29,13 +30,12 @@ public class LogoutController {
                 if (COOKIE_REMEMBER.equals(cookie.getName())) {
                     cookie.setValue("");
                     cookie.setMaxAge(0);
-                    cookie.setPath("/"); // quan trọng để xoá đúng cookie
+                    cookie.setPath("/"); // chắc chắn path đúng
                     response.addCookie(cookie);
                 }
             }
         }
 
-        // Chuyển hướng về trang login
-        return "redirect:/auth/login";
+        return "redirect:" + LOGIN_PAGE;
     }
 }

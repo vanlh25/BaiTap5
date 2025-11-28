@@ -1,65 +1,72 @@
 package vn.iotstar.controller.auth;
 
 import jakarta.servlet.http.HttpSession;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
+
 import vn.iotstar.service.UserService;
 
 @Controller
+@RequestMapping("/auth")
 public class ResetPasswordController {
 
-    @Autowired
-    private UserService userService; // Spring inject IUserService
+    private static final String RESET_PASSWORD_PAGE = "auth/reset-password"; // -> /templates/auth/reset-password.jsp
+    private static final String LOGIN_PAGE = "auth/login"; // -> /templates/auth/login.html
+    private static final String FORGOT_PASSWORD_URL = "/auth/forgot-password";
 
-    @GetMapping("/auth/reset-password")
+    @Autowired
+    private UserService userService;
+
+    // GET: /auth/reset-password
+    @GetMapping("/reset-password")
     public String showResetPasswordPage(HttpSession session) {
-        // Nếu không có email trong session → redirect về forgot-password
-        if (session.getAttribute("resetEmail") == null) {
-            return "redirect:/auth/forgot-password";
+        String email = (String) session.getAttribute("resetEmail");
+
+        if (email == null) {
+            // Nếu không có email trong session, quay lại trang forgot-password
+            return "redirect:" + FORGOT_PASSWORD_URL;
         }
 
-        return "reset-password"; // forward đến /WEB-INF/views/reset-password.jsp
+        return RESET_PASSWORD_PAGE;
     }
 
-    @PostMapping("/auth/reset-password")
-    public String handleResetPassword(
-            @RequestParam("password") String password,
-            @RequestParam("confirmPassword") String confirmPassword,
-            Model model,
-            HttpSession session) {
+    // POST: /auth/reset-password
+    @PostMapping("/reset-password")
+    public String handleResetPassword(@RequestParam String password,
+                                      @RequestParam String confirmPassword,
+                                      HttpSession session,
+                                      Model model) {
 
-        String alertMsg = "";
-
-        // Kiểm tra session hợp lệ
         String email = (String) session.getAttribute("resetEmail");
+
         if (email == null) {
-            return "redirect:/auth/login";
+            return "redirect:" + LOGIN_PAGE;
         }
 
-        // Kiểm tra mật khẩu hợp lệ
+        String alertMsg = null;
+
+        // Kiểm tra mật khẩu
         if (!password.equals(confirmPassword)) {
-            alertMsg = "Passwords do not match!";
-        } else if (password.length() < 8) {
-            alertMsg = "Password must be at least 8 characters!";
+            alertMsg = "Passwords không trùng khớp!";
+        } else if (password.length() < 6) {
+            alertMsg = "Password phải có ít nhất 6 kí tự!";
         } else {
-            // Cập nhật mật khẩu trong DB
             boolean success = userService.editPassword(email, password);
             if (success) {
                 alertMsg = "Reset password successfully!";
-                session.removeAttribute("resetEmail"); // Xóa session reset email
+                session.removeAttribute("resetEmail"); // Xóa session sau khi reset
                 model.addAttribute("alert", alertMsg);
-                return "login"; // forward tới login.jsp
+                return LOGIN_PAGE; // forward tới login
             } else {
-                alertMsg = "System error";
+                alertMsg = "System error!";
             }
         }
 
-        // Nếu thất bại, quay lại trang reset-password
+        // Nếu thất bại -> quay lại reset password page
         model.addAttribute("alert", alertMsg);
-        return "reset-password";
+        return RESET_PASSWORD_PAGE;
     }
 }

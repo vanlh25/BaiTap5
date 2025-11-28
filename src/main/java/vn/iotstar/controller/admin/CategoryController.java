@@ -1,88 +1,165 @@
 package vn.iotstar.controller.admin;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 
-import jakarta.validation.Valid;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.ModelMap;
-import org.springframework.validation.BindingResult;
+import org.springframework.ui.Model;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.ModelAndView;
 
-import vn.iotstar.model.CategoryModel;
+import jakarta.servlet.http.HttpSession;
+import org.springframework.web.multipart.MultipartFile;
 import vn.iotstar.entity.Category;
+import vn.iotstar.model.CategoryModel;
+import vn.iotstar.model.UserModel;
 import vn.iotstar.service.CategoryService;
+import vn.iotstar.service.UserService;
 
 @Controller
-@RequestMapping("/admin/categories")
+@RequestMapping("/admin/category")
 public class CategoryController {
 
     @Autowired
     private CategoryService categoryService;
 
-    // ------------------- LIST -------------------
-    @GetMapping("")
-    public String list(ModelMap model) {
+    @Autowired
+    private UserService userService;
+
+    @Value("${file.upload-dir}")
+    private String uploadDir;
+
+    private static final String LOGIN_PAGE = "/auth/login";
+
+    // ===== LIST CATEGORY =====
+    @GetMapping("/list")
+    public String listCategory(HttpSession session, Model model) {
+        UserModel user = (UserModel) session.getAttribute("account");
+        if (user == null) return "redirect:" + LOGIN_PAGE;
+
         List<Category> categories = categoryService.findAll();
         model.addAttribute("categories", categories);
-        return "admin/categories/list"; // view list.jsp
+        return "admin/category/list-category";
     }
 
-    // ------------------- ADD -------------------
+    // ===== CREATE CATEGORY FORM =====
     @GetMapping("/add")
-    public String add(ModelMap model) {
-        CategoryModel categoryModel = new CategoryModel();
-        categoryModel.setIsEdit(false);
-        model.addAttribute("category", categoryModel);
-        return "admin/categories/addOrEdit"; // view addOrEdit.jsp
+    public String createForm(HttpSession session, Model model) {
+        UserModel user = (UserModel) session.getAttribute("account");
+        if (user == null) return "redirect:" + LOGIN_PAGE;
+
+        model.addAttribute("category", new CategoryModel());
+        return "admin/category/add-category";
     }
 
-    // ------------------- SAVE / UPDATE -------------------
-    @PostMapping("/saveOrUpdate")
-    public ModelAndView saveOrUpdate(
-            @Valid @ModelAttribute("category") CategoryModel categoryModel,
-            BindingResult result,
-            ModelMap model) {
+    // ===== SAVE NEW CATEGORY =====
+    @PostMapping("/add")
+    public String saveCategory(@ModelAttribute CategoryModel categoryModel, HttpSession session) throws IOException {
 
-        if (result.hasErrors()) {
-            return new ModelAndView("admin/categories/addOrEdit");
+        UserModel user = (UserModel) session.getAttribute("account");
+        if (user == null) return "redirect:" + LOGIN_PAGE;
+
+        String finalFileName = categoryModel.getImages();
+        MultipartFile file = categoryModel.getImagesFile();
+
+        // ===== Xử lý upload file =====
+        if (file != null && !file.isEmpty()) {
+            String originalFileName = StringUtils.cleanPath(file.getOriginalFilename());
+            String ext = "";
+            int dot = originalFileName.lastIndexOf(".");
+            if (dot != -1) ext = originalFileName.substring(dot);
+
+            finalFileName = System.currentTimeMillis() + ext;
+
+            File uploadFolder = new File(uploadDir);
+            if (!uploadFolder.exists()) uploadFolder.mkdirs();
+
+            File destFile = new File(uploadFolder, finalFileName);
+            file.transferTo(destFile);
         }
 
-        Category entity = new Category();
-        BeanUtils.copyProperties(categoryModel, entity);
-        categoryService.save(entity);
+        // ===== Chuyển CategoryModel -> Category entity =====
+        Category category = new Category();
+        category.setCategoryName(categoryModel.getCategoryName());
+        category.setCategoryCode(categoryModel.getCategoryCode());
+        category.setImages(finalFileName);
+        category.setStatus(categoryModel.getStatus());
+        category.setUser(userService.findByName(user.getUserName()).orElse(null));
 
-        String message = categoryModel.getIsEdit() ? "Category updated successfully!" : "Category added successfully!";
-        model.addAttribute("message", message);
-
-        return new ModelAndView("redirect:/admin/categories");
+        categoryService.save(category);
+        return "redirect:/admin/category/list";
     }
 
-    // ------------------- EDIT -------------------
+    // ===== EDIT CATEGORY FORM =====
     @GetMapping("/edit/{id}")
-    public ModelAndView edit(@PathVariable("id") int id, ModelMap model) {
-        Optional<Category> categoryOpt = categoryService.findById(id);
-        if (categoryOpt.isPresent()) {
-            Category entity = categoryOpt.get();
-            CategoryModel categoryModel = new CategoryModel();
-            BeanUtils.copyProperties(entity, categoryModel);
-            categoryModel.setIsEdit(true);
-            model.addAttribute("category", categoryModel);
-            return new ModelAndView("admin/categories/addOrEdit", model);
-        } else {
-            model.addAttribute("message", "Category not found!");
-            return new ModelAndView("redirect:/admin/categories", model);
-        }
+    public String editForm(@PathVariable("id") int categoryId, HttpSession session, Model model) {
+        UserModel user = (UserModel) session.getAttribute("account");
+        if (user == null) return "redirect:" + LOGIN_PAGE;
+
+        Category category = categoryService.findById(categoryId).orElse(null);
+        if (category == null) return "redirect:/admin/category/list";
+
+        CategoryModel categoryModel = new CategoryModel();
+        categoryModel.setCategoryId(category.getCategoryId());
+        categoryModel.setCategoryName(category.getCategoryName());
+        categoryModel.setCategoryCode(category.getCategoryCode());
+        categoryModel.setImages(category.getImages());
+        categoryModel.setStatus(category.getStatus());
+
+        model.addAttribute("category", categoryModel);
+        return "admin/category/edit-category";
     }
 
-    // ------------------- DELETE -------------------
-    @GetMapping("/delete/{id}")
-    public ModelAndView delete(@PathVariable("id") int id, ModelMap model) {
-        categoryService.deleteById(id);
-        model.addAttribute("message", "Category deleted successfully!");
-        return new ModelAndView("redirect:/admin/categories", model);
+    // ===== UPDATE CATEGORY =====
+    @PostMapping("/edit")
+    public String updateCategory(@ModelAttribute CategoryModel categoryModel, HttpSession session) throws IOException {
+
+        UserModel user = (UserModel) session.getAttribute("account");
+        if (user == null) return "redirect:" + LOGIN_PAGE;
+
+        Category category = categoryService.findById(categoryModel.getCategoryId()).orElse(null);
+        if (category == null) return "redirect:/admin/category/list";
+
+        category.setCategoryName(categoryModel.getCategoryName());
+        category.setCategoryCode(categoryModel.getCategoryCode());
+        category.setStatus(categoryModel.getStatus());
+
+        String finalFileName = category.getImages();
+        MultipartFile file = categoryModel.getImagesFile();
+
+        // ===== Xử lý upload file mới nếu có =====
+        if (file != null && !file.isEmpty()) {
+            String originalFileName = StringUtils.cleanPath(file.getOriginalFilename());
+            String ext = "";
+            int dot = originalFileName.lastIndexOf(".");
+            if (dot != -1) ext = originalFileName.substring(dot);
+
+            finalFileName = System.currentTimeMillis() + ext;
+
+            File uploadFolder = new File(uploadDir);
+            if (!uploadFolder.exists()) uploadFolder.mkdirs();
+
+            File destFile = new File(uploadFolder, finalFileName);
+            file.transferTo(destFile);
+        }
+
+        category.setImages(finalFileName);
+
+        categoryService.save(category);
+        return "redirect:/admin/category/list";
     }
+
+    // ===== DELETE CATEGORY =====
+    @GetMapping("/delete")
+    public String deleteCategory(@RequestParam("id") int categoryId, HttpSession session) {
+        UserModel user = (UserModel) session.getAttribute("account");
+        if (user == null) return "redirect:" + LOGIN_PAGE;
+
+        categoryService.deleteById(categoryId);
+        return "redirect:/admin/category/list";
+    }
+
 }

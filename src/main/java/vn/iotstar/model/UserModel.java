@@ -16,7 +16,7 @@ public class UserModel {
 
     private String phone;
 
-    private String fullname; // nên giống với entity User
+    private String fullName; 
 
     private String email;
 

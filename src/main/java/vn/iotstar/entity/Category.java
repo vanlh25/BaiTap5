@@ -20,13 +20,13 @@ public class Category implements Serializable {
     @Id 
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "CategoryId", nullable = false, unique = true)
-    private int id;
+    private int categoryId;
 
     @Column(name = "CategoryName", nullable = false, columnDefinition = "NVARCHAR(200)")
     private String categoryName;
 
     @Column(name = "CategoryCode", nullable = false, columnDefinition = "NVARCHAR(200)")
-    private String code;
+    private String categoryCode;
 
     @Column(name = "Images", columnDefinition = "NVARCHAR(1000)")
     private String images;
@@ -40,8 +40,9 @@ public class Category implements Serializable {
     private User user;
 
     // Category có nhiều video
-    @OneToMany(mappedBy = "category")
+    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Video> videos = new ArrayList<>();
+
 
     // Hàm tiện ích đồng bộ 2 chiều
     public Video addVideo(Video video) {

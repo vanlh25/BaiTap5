@@ -5,20 +5,22 @@ import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import vn.iotstar.entity.Category;
 import vn.iotstar.repository.CategoryRepository;
 import vn.iotstar.service.CategoryService;
 
 @Service
+@Transactional
 public class CategoryServiceImpl implements CategoryService {
 
     @Autowired
     private CategoryRepository categoryRepository;
 
     @Override
-    public Optional<Category> findById(int id) {
-        return categoryRepository.findById(id);
+    public Optional<Category> findById(int categoryId) {
+        return categoryRepository.findById(categoryId);
     }
 
     @Override
@@ -27,8 +29,8 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
-    public Optional<Category> findByName(String name) {
-        return categoryRepository.findByCategoryName(name);
+    public Optional<Category> findByName(String categoryName) {
+        return categoryRepository.findByCategoryName(categoryName);
     }
 
     @Override
@@ -42,7 +44,7 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
-    public void deleteById(int id) {
-        categoryRepository.deleteById(id);
+    public void deleteById(int categoryId) {
+        categoryRepository.deleteById(categoryId);
     }
 }

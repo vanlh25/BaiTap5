@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <sitemesh>
-    <!-- Áp dụng decorator cho tất cả request -->
-    <mapping path="/*" decorator="/WEB-INF/decorators/bootstrap.jsp"/>
+    <mapping path="/*" decorator="/web.jsp"/>
+     <mapping path="/admin/*" decorator="/admin.jsp"/>
 </sitemesh>
+

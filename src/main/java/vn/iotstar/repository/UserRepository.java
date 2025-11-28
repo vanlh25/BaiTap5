@@ -13,15 +13,15 @@ import jakarta.transaction.Transactional;
 @Repository
 public interface UserRepository extends JpaRepository<User, String> {
 
-	Optional<User> findByUsername(String username);
+	Optional<User> findByUserName(String userName);
 
     boolean existsByEmail(String email);
 
-    boolean existsByUsername(String username);
+    boolean existsByUserName(String userName);
 
     boolean existsByPhone(String phone);
 
-    Optional<User> findByUsernameAndAdminTrue(String username);
+    Optional<User> findByUserNameAndAdminTrue(String userName);
 
     // Cập nhật mật khẩu theo email
     @Modifying

@@ -1,14 +1,13 @@
 package vn.iotstar.controller.auth;
 
 import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.ModelMap;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import vn.iotstar.entity.User;
@@ -21,83 +20,80 @@ import java.util.Optional;
 @RequestMapping("/auth")
 public class LoginController {
 
-    public static final String COOKIE_REMEMBER = "userName";
+    private static final String COOKIE_REMEMBER = "userName";
+    private static final String LOGIN_PAGE = "auth/login";  // /WEB-INF/views/auth/login.jsp
+    private static final String WAITING_URL = "/auth/waiting";
 
     @Autowired
     private UserService userService;
 
-    // ---------------- GET LOGIN ----------------
+    // GET: /auth/login
     @GetMapping("/login")
-    public String login(HttpServletRequest request, ModelMap model) {
+    public String loginPage(@CookieValue(value = COOKIE_REMEMBER, defaultValue = "") String rememberUsername,
+                            HttpSession session,
+                            HttpServletResponse response) {
 
-        HttpSession session = request.getSession(false);
-        if (session != null && session.getAttribute("account") != null) {
-            return "redirect:/admin/dashboard";
+        // Nếu đã login, redirect waiting
+        if (session.getAttribute("account") != null) {
+            return "redirect:" + WAITING_URL;
         }
 
-        // Kiểm tra cookie Remember Me
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if (COOKIE_REMEMBER.equals(cookie.getName())) {
-                    String userName = cookie.getValue();
-                    Optional<User> optUser = userService.findByUsername(userName);
-                    if (optUser.isPresent()) {
-                        UserModel userModel = new UserModel();
-                        BeanUtils.copyProperties(optUser.get(), userModel); // copy entity -> model
-                        request.getSession(true).setAttribute("account", userModel);
-                        return "redirect:/admin/dashboard";
-                    }
+        // Nếu có cookie remember me
+        if (!rememberUsername.isEmpty()) {
+            Optional<User> userOpt = userService.findByName(rememberUsername);
+            if (userOpt.isPresent()) {
+                User userEntity = userOpt.get();
+                if (userEntity.getAdmin() != null && userEntity.getAdmin()) {
+                    // Admin auto login
+                    UserModel userModel = new UserModel();
+                    BeanUtils.copyProperties(userEntity, userModel);
+                    session.setAttribute("account", userModel);
+                    return "redirect:" + WAITING_URL;
                 }
             }
+            // Không phải admin → xóa cookie
+            Cookie cookie = new Cookie(COOKIE_REMEMBER, null);
+            cookie.setMaxAge(0);
+            cookie.setPath("/");
+            response.addCookie(cookie);
         }
 
-        model.addAttribute("userModel", new UserModel()); // Bind form login
-        return "/views/login";
+        return LOGIN_PAGE;
     }
 
-    // ---------------- POST LOGIN ----------------
+    // POST: /auth/login
     @PostMapping("/login")
-    public String login(@ModelAttribute("userModel") UserModel userModel,
-                        HttpServletRequest request,
+    public String login(@RequestParam String userName,
+                        @RequestParam String password,
+                        @RequestParam(required = false) String remember,
+                        HttpSession session,
                         HttpServletResponse response,
-                        ModelMap model) {
+                        Model model) {
 
-        String userName = userModel.getUserName();
-        String password = userModel.getPassword();
-        boolean rememberMe = userModel.isRememberMe();
-
-        if (userName == null || userName.isEmpty() || password == null || password.isEmpty()) {
+        if (userName.isEmpty() || password.isEmpty()) {
             model.addAttribute("alert", "Tài khoản hoặc mật khẩu không được rỗng");
-            return "/views/login";
+            return LOGIN_PAGE;
         }
 
-        Optional<User> optUser = userService.login(userName, password);
-        if (optUser.isPresent()) {
-            User userEntity = optUser.get();
-            // Map entity -> model
-            UserModel user = new UserModel();
-            BeanUtils.copyProperties(userEntity, user);
+        Optional<User> userOpt = userService.login(userName, password);
+        if (userOpt.isPresent()) {
+            User userEntity = userOpt.get();
+            UserModel userModel = new UserModel();
+            BeanUtils.copyProperties(userEntity, userModel);
+            session.setAttribute("account", userModel);
 
-            HttpSession session = request.getSession(true);
-            session.setAttribute("account", user);
-
-            if (rememberMe) {
-                Cookie cookie = new Cookie(COOKIE_REMEMBER, user.getUserName());
+            // Chỉ lưu cookie remember me nếu là admin
+            if ("on".equals(remember) && Boolean.TRUE.equals(userEntity.getAdmin())) {
+                Cookie cookie = new Cookie(COOKIE_REMEMBER, userName);
                 cookie.setMaxAge(30 * 60); // 30 phút
-                cookie.setPath(request.getContextPath());
+                cookie.setPath("/");       // toàn app
                 response.addCookie(cookie);
             }
 
-            if (userService.checkRoleAdmin(user.getUserName())) {
-                return "redirect:/admin/dashboard";
-            } else {
-                model.addAttribute("alert", "Bạn không có quyền truy cập!");
-                return "/views/login";
-            }
+            return "redirect:" + WAITING_URL;
         } else {
             model.addAttribute("alert", "Tài khoản hoặc mật khẩu không đúng");
-            return "/views/login";
+            return LOGIN_PAGE;
         }
     }
 }

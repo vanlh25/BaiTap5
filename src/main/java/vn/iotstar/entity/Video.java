@@ -17,26 +17,26 @@ public class Video implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name="videoId")
-    private int id;
+    @Column(name="VideoId", nullable = false)
+    private int videoId;
 
-    @Column(length = 255)
+    @Column(name = "Title",length = 255)
     private String title;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "Poster", columnDefinition = "TEXT")
     private String poster;
 
-    @Column
+    @Column(name = "Views")
     private int views;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "Description", columnDefinition = "TEXT")
     private String description;
 
-    @Column
+    @Column(name = "Active")
     private Boolean active;
 
     // Mỗi video thuộc 1 category
     @ManyToOne
-    @JoinColumn(name="categoryId")
+    @JoinColumn(name="CategoryId")
     private Category category;
 }

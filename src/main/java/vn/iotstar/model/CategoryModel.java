@@ -2,6 +2,7 @@ package vn.iotstar.model;
 
 import jakarta.validation.constraints.NotEmpty;
 import lombok.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @Data
 @NoArgsConstructor
@@ -16,11 +17,15 @@ public class CategoryModel {
     @NotEmpty(message = "Category code cannot be empty")
     private String categoryCode;
 
+    // Tên file lưu vào DB
     private String images;
+
+    // File upload từ form
+    private MultipartFile imagesFile;
 
     private int status;
 
-    private String userName; // foreign key
+    private String userName; 
 
     private Boolean isEdit = false;
 }

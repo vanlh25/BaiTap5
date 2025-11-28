@@ -18,7 +18,8 @@ public class JSPStaticResourceConfigurer implements LifecycleListener {
         this.context = context;
     }
 
-    private final String subPath = "/META-INF";
+    private final String subPath = "/META-INF/resources";
+
 
     @Override
     public void lifecycleEvent(LifecycleEvent event) {

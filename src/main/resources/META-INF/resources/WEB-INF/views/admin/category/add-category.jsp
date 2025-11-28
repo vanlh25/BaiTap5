@@ -12,7 +12,6 @@
 
     <form action="${pageContext.request.contextPath}/admin/category/add" 
           method="post" enctype="multipart/form-data">
-        <input type="hidden" name="action" value="add">
 
         <div class="form-group">
             <label>Tên danh mục:</label>
@@ -34,10 +33,9 @@
 
         <div class="form-group">
             <label>Hình ảnh:</label>
-            <input type="file" name="images" class="form-control" onchange="previewImage(event)">
+            <input type="file" name="imagesFile" class="form-control" onchange="previewImage(event)">
         </div>
 
-        <!-- Preview ảnh -->
         <div class="form-group mt-2">
             <img id="preview" src="#" alt="Ảnh xem trước" 
                  style="display: none; width: 100px; height: 100px; object-fit: cover; border: 1px solid #ccc;">
@@ -47,16 +45,13 @@
             <button type="submit" class="btn btn-success">Thêm Category</button>
             <a href="${pageContext.request.contextPath}/admin/category/list" class="btn btn-secondary">Hủy</a>
         </div>
+
     </form>
 </div>
 
 <style>
-.form-group {
-    margin-bottom: 15px;
-}
-.form-control {
-    width: 50%;
-}
+.form-group { margin-bottom: 15px; }
+.form-control { width: 50%; }
 </style>
 
 <script>

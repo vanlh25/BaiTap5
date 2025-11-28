@@ -1,82 +1,160 @@
 package vn.iotstar.controller.admin;
 
-import vn.iotstar.model.VideoModel;
+import java.io.File;
+import java.io.IOException;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import jakarta.servlet.http.HttpSession;
 import vn.iotstar.entity.Video;
+import vn.iotstar.model.UserModel;
+import vn.iotstar.model.VideoModel;
 import vn.iotstar.service.VideoService;
 
-import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.ModelMap;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.ModelAndView;
-
-import java.util.List;
-import java.util.Optional;
-
 @Controller
-@RequestMapping("/admin/videos")
+@RequestMapping("/admin/video")
 public class VideoController {
 
     @Autowired
     private VideoService videoService;
 
-    // ------------------- LIST -------------------
-    @GetMapping("")
-    public String list(ModelMap model) {
-        List<Video> list = videoService.findAll(); // lấy entity trực tiếp
-        model.addAttribute("videos", list);
-        return "admin/videos/list";
-    }
+    @Value("${file.upload-dir}")
+    private String uploadDir;
 
-    // ------------------- ADD -------------------
-    @GetMapping("/add")
-    public String add(ModelMap model) {
-        VideoModel videoModel = new VideoModel();
-        videoModel.setIsEdit(false);
-        model.addAttribute("video", videoModel);
-        return "admin/videos/addOrEdit";
-    }
+    private static final String LOGIN_PAGE = "/auth/login";
 
-    // ------------------- EDIT -------------------
-    @GetMapping("/edit/{id}")
-    public ModelAndView edit(ModelMap model, @PathVariable("id") int id) {
-        Optional<Video> optVideo = videoService.findById(id); // trả về Optional<Video>
+    // ===== LIST VIDEO WITH SEARCH =====
+    @GetMapping("/list")
+    public String listVideo(@RequestParam(value = "keyword", required = false) String keyword,
+                            HttpSession session, Model model) {
 
-        if (optVideo.isPresent()) {
-            Video video = optVideo.get();
-            VideoModel videoModel = new VideoModel();
-            BeanUtils.copyProperties(video, videoModel);
-            videoModel.setIsEdit(true);
-            model.addAttribute("video", videoModel);
-            return new ModelAndView("admin/videos/addOrEdit", model);
+        UserModel user = (UserModel) session.getAttribute("account");
+        if (user == null) return "redirect:" + LOGIN_PAGE;
+
+        List<Video> videos;
+        if (keyword != null && !keyword.isEmpty()) {
+            videos = videoService.search(keyword);
+        } else {
+            videos = videoService.findAll();
         }
 
-        model.addAttribute("message", "Video does not exist!");
-        return new ModelAndView("redirect:/admin/videos", model);
+        model.addAttribute("videos", videos);
+        model.addAttribute("keyword", keyword);
+        return "admin/video/list-video";
     }
 
+    // ===== ADD VIDEO FORM =====
+    @GetMapping("/add")
+    public String addForm(HttpSession session, Model model) {
+        UserModel user = (UserModel) session.getAttribute("account");
+        if (user == null) return "redirect:" + LOGIN_PAGE;
 
-    // ------------------- SAVE OR UPDATE -------------------
-    @PostMapping("/saveOrUpdate")
-    public ModelAndView saveOrUpdate(ModelMap model,
-                                     @ModelAttribute("video") VideoModel videoModel) {
-
-        Video entity = new Video();
-        BeanUtils.copyProperties(videoModel, entity); // map model → entity
-        videoService.save(entity); // service làm việc với entity
-
-        String message = videoModel.getIsEdit() ? "Video updated successfully!" : "Video saved successfully!";
-        model.addAttribute("message", message);
-
-        return new ModelAndView("redirect:/admin/videos");
+        model.addAttribute("video", new VideoModel());
+        return "admin/video/add-video";
     }
 
-    // ------------------- DELETE -------------------
+    // ===== SAVE VIDEO =====
+    @PostMapping("/add")
+    public String saveVideo(@ModelAttribute VideoModel videoModel) throws IOException {
+
+        String finalFileName = videoModel.getPoster();
+        MultipartFile file = videoModel.getPosterFile();
+
+        if (file != null && !file.isEmpty()) {
+            String originalFileName = StringUtils.cleanPath(file.getOriginalFilename());
+            String ext = "";
+            int dot = originalFileName.lastIndexOf(".");
+            if (dot != -1) ext = originalFileName.substring(dot);
+
+            finalFileName = System.currentTimeMillis() + ext;
+
+            File uploadFolder = new File(uploadDir);
+            if (!uploadFolder.exists()) uploadFolder.mkdirs();
+
+            File destFile = new File(uploadFolder, finalFileName);
+            file.transferTo(destFile);
+        }
+
+        Video video = new Video();
+        video.setTitle(videoModel.getTitle());
+        video.setDescription(videoModel.getDescription());
+        video.setViews(videoModel.getViews());
+        video.setActive(videoModel.getActive() == 1);
+        video.setPoster(finalFileName);
+        // categoryId cần lấy Category entity nếu có, bỏ qua nếu không
+        // video.setCategory(...);
+
+        videoService.save(video);
+        return "redirect:/admin/video/list";
+    }
+
+    // ===== EDIT VIDEO FORM =====
+    @GetMapping("/edit/{id}")
+    public String editForm(@PathVariable("id") int videoId, HttpSession session, Model model) {
+        UserModel user = (UserModel) session.getAttribute("account");
+        if (user == null) return "redirect:" + LOGIN_PAGE;
+
+        Video video = videoService.findById(videoId).orElse(null);
+        if (video == null) return "redirect:/admin/video/list";
+
+        VideoModel videoModel = new VideoModel();
+        videoModel.setVideoId(video.getVideoId());
+        videoModel.setTitle(video.getTitle());
+        videoModel.setDescription(video.getDescription());
+        videoModel.setViews(video.getViews());
+        videoModel.setActive(video.getActive() ? 1 : 0);
+        videoModel.setPoster(video.getPoster());
+
+        model.addAttribute("video", videoModel);
+        return "admin/video/edit-video";
+    }
+
+    // ===== UPDATE VIDEO =====
+    @PostMapping("/edit")
+    public String updateVideo(@ModelAttribute VideoModel videoModel) throws IOException {
+        Video video = videoService.findById(videoModel.getVideoId()).orElse(null);
+        if (video == null) return "redirect:/admin/video/list";
+
+        video.setTitle(videoModel.getTitle());
+        video.setDescription(videoModel.getDescription());
+        video.setViews(videoModel.getViews());
+        video.setActive(videoModel.getActive() == 1);
+
+        MultipartFile file = videoModel.getPosterFile();
+        String finalFileName = video.getPoster();
+
+        if (file != null && !file.isEmpty()) {
+            String originalFileName = StringUtils.cleanPath(file.getOriginalFilename());
+            String ext = "";
+            int dot = originalFileName.lastIndexOf(".");
+            if (dot != -1) ext = originalFileName.substring(dot);
+
+            finalFileName = System.currentTimeMillis() + ext;
+
+            File uploadFolder = new File(uploadDir);
+            if (!uploadFolder.exists()) uploadFolder.mkdirs();
+
+            File destFile = new File(uploadFolder, finalFileName);
+            file.transferTo(destFile);
+        }
+
+        video.setPoster(finalFileName);
+        videoService.save(video);
+
+        return "redirect:/admin/video/list";
+    }
+
+    // ===== DELETE VIDEO =====
     @GetMapping("/delete/{id}")
-    public ModelAndView delete(ModelMap model, @PathVariable("id") int id) {
-        videoService.delete(id);
-        model.addAttribute("message", "Video deleted successfully!");
-        return new ModelAndView("redirect:/admin/videos", model);
+    public String deleteVideo(@PathVariable("id") int videoId) {
+        videoService.deleteById(videoId);
+        return "redirect:/admin/video/list";
     }
 }

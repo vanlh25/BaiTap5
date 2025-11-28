@@ -5,12 +5,14 @@ import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import vn.iotstar.entity.Video;
 import vn.iotstar.repository.VideoRepository;
 import vn.iotstar.service.VideoService;
 
 @Service
+@Transactional
 public class VideoServiceImpl implements VideoService {
 
     @Autowired
@@ -42,7 +44,7 @@ public class VideoServiceImpl implements VideoService {
     }
 
     @Override
-    public void delete(int videoId) {
+    public void deleteById(int videoId) {
         videoRepository.deleteById(videoId);
     }
 

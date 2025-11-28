@@ -1,80 +1,85 @@
 package vn.iotstar.controller.auth;
 
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.ModelMap;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
-import vn.iotstar.model.UserModel;
+
 import vn.iotstar.service.UserService;
 
 @Controller
 @RequestMapping("/auth")
 public class RegisterController {
 
-    public static final String COOKIE_REMEMBER = "userName";
+    private static final String COOKIE_REMEMBER = "userName";
+    private static final String REGISTER_PAGE = "auth/register"; // /templates/auth/register.html
+    private static final String LOGIN_URL = "/auth/login";
+    private static final String WAITING_URL = "/auth/waiting";
 
     @Autowired
     private UserService userService;
 
-    // ---------------- GET REGISTER ----------------
+    // GET: /auth/register
     @GetMapping("/register")
-    public String register(HttpServletRequest request, ModelMap model) {
-        HttpSession session = request.getSession(false);
-        if (session != null && session.getAttribute("account") != null) {
-            return "redirect:/admin/dashboard";
+    public String registerPage(HttpSession session,
+                               @CookieValue(value = COOKIE_REMEMBER, defaultValue = "") String rememberUsername) {
+        // Nếu đã login
+        if (session.getAttribute("account") != null) {
+            return "redirect:" + WAITING_URL;
         }
 
-        // Kiểm tra cookie
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if (COOKIE_REMEMBER.equals(cookie.getName())) {
-                    return "redirect:/admin/dashboard";
-                }
-            }
+        // Nếu có cookie remember me
+        if (!rememberUsername.isEmpty()) {
+            return "redirect:" + WAITING_URL;
         }
 
-        model.addAttribute("userModel", new UserModel());
-        return "/views/register";
+        return REGISTER_PAGE;
     }
 
-    // ---------------- POST REGISTER ----------------
+    // POST: /auth/register
     @PostMapping("/register")
-    public String register(@ModelAttribute("userModel") UserModel userModel,
-                           ModelMap model,
-                           HttpServletRequest request) {
+    public String register(@RequestParam String userName,
+                           @RequestParam String password,
+                           @RequestParam String email,
+                           @RequestParam String fullName,
+                           @RequestParam String phone,
+                           Model model,
+                           HttpSession session,
+                           HttpServletResponse response) {
 
-        String userName = userModel.getUserName();
-        String password = userModel.getPassword();
-        String email = userModel.getEmail();
-        String fullName = userModel.getFullname();
-        String phone = userModel.getPhone();
+        String alertMsg = "";
 
         // Kiểm tra trùng lặp
-        if (userService.checkExistEmail(email)) {
-            model.addAttribute("alert", "Email đã tồn tại!");
-            return "/views/register";
+        if (userService.existsByEmail(email)) {
+            alertMsg = "Email đã tồn tại!";
+            model.addAttribute("alert", alertMsg);
+            return REGISTER_PAGE;
         }
 
-        if (userService.checkExistUsername(userName)) {
-            model.addAttribute("alert", "Tài khoản đã tồn tại!");
-            return "/views/register";
+        if (userService.existsByUserName(userName)) {
+            alertMsg = "Tài khoản đã tồn tại!";
+            model.addAttribute("alert", alertMsg);
+            return REGISTER_PAGE;
         }
 
-        if (userService.checkExistPhone(phone)) {
-            model.addAttribute("alert", "Số điện thoại đã tồn tại!");
-            return "/views/register";
+        if (userService.existsByPhone(phone)) {
+            alertMsg = "Số điện thoại đã tồn tại!";
+            model.addAttribute("alert", alertMsg);
+            return REGISTER_PAGE;
         }
 
-        boolean success = userService.register(email, userName, fullName, password, phone);
-        if (success) {
-            return "redirect:/auth/login";
+        // Thực hiện đăng ký
+        boolean isSuccess = userService.register(email, userName, fullName, password, phone);
+        if (isSuccess) {
+            // Sau đăng ký chuyển về login
+            return "redirect:" + LOGIN_URL;
         } else {
-            model.addAttribute("alert", "System error!");
-            return "/views/register";
+            alertMsg = "System error!";
+            model.addAttribute("alert", alertMsg);
+            return REGISTER_PAGE;
         }
     }
 }

@@ -12,14 +12,15 @@ import vn.iotstar.repository.UserRepository;
 import vn.iotstar.service.UserService;
 
 @Service
+@Transactional
 public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserRepository userRepository;
 
     @Override
-    public Optional<User> findByUsername(String username) {
-        return userRepository.findByUsername(username); // Repository trả Optional<User>
+    public Optional<User> findByName(String userName) {
+        return userRepository.findByUserName(userName);
     }
 
     @Override
@@ -38,14 +39,13 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public void deleteByUserName(String username) {
-        Optional<User> userOpt = userRepository.findByUsername(username);
-        userOpt.ifPresent(userRepository::delete);
+    public void deleteByName(String userName) {
+        userRepository.deleteById(userName); // userName là PK
     }
 
     @Override
-    public Optional<User> login(String username, String password) {
-        Optional<User> userOpt = userRepository.findByUsername(username);
+    public Optional<User> login(String userName, String password) {
+        Optional<User> userOpt = userRepository.findByUserName(userName);
         if (userOpt.isPresent() && userOpt.get().getPassword().equals(password)) {
             return userOpt;
         }
@@ -53,46 +53,47 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public boolean register(String email, String username, String fullName, String password, String phone) {
-        if (userRepository.existsByEmail(email) || userRepository.existsByUsername(username) || userRepository.existsByPhone(phone)) {
+    public boolean register(String email, String userName, String fullName, String password, String phone) {
+        // Kiểm tra tồn tại trước
+        if (existsByEmail(email) || existsByUserName(userName) || existsByPhone(phone)) {
             return false;
         }
         User user = new User();
         user.setEmail(email);
-        user.setUsername(username);
-        user.setFullname(fullName);
+        user.setUserName(userName);
+        user.setFullName(fullName);
         user.setPassword(password);
         user.setPhone(phone);
-        user.setAdmin(false);
-        user.setActive(true);
+        user.setAdmin(false);  // mặc định user thường
+        user.setActive(true);  // mặc định active
         userRepository.save(user);
         return true;
     }
 
     @Override
-    public boolean checkExistEmail(String email) {
+    public boolean existsByEmail(String email) {
         return userRepository.existsByEmail(email);
     }
 
     @Override
-    public boolean checkExistUsername(String username) {
-        return userRepository.existsByUsername(username);
+    public boolean existsByUserName(String userName) {
+        return userRepository.existsByUserName(userName);
     }
 
     @Override
-    public boolean checkExistPhone(String phone) {
+    public boolean existsByPhone(String phone) {
         return userRepository.existsByPhone(phone);
     }
 
     @Override
-    public boolean checkRoleAdmin(String username) {
-        return userRepository.findByUsernameAndAdminTrue(username).isPresent();
+    public boolean checkRoleAdmin(String userName) {
+        Optional<User> userOpt = userRepository.findByUserNameAndAdminTrue(userName);
+        return userOpt.isPresent();
     }
 
     @Override
-    @Transactional
     public boolean editPassword(String email, String newPassword) {
-        int updated = userRepository.updatePasswordByEmail(email, newPassword);
-        return updated > 0;
+        int rowsAffected = userRepository.updatePasswordByEmail(email, newPassword);
+        return rowsAffected > 0;
     }
 }

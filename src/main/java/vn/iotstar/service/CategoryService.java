@@ -7,15 +7,15 @@ import vn.iotstar.entity.Category;
 
 public interface CategoryService {
 
-    Optional<Category> findById(int id);
+    Optional<Category> findById(int categoryId);
 
     List<Category> findAll();
 
-    Optional<Category> findByName(String name);
+    Optional<Category> findByName(String categoryName);
 
     long count();
 
     Category save(Category category); // dùng cho insert/update
 
-    void deleteById(int id);
+    void deleteById(int categoryId);
 }

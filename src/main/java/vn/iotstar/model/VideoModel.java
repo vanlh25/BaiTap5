@@ -2,6 +2,7 @@ package vn.iotstar.model;
 
 import jakarta.validation.constraints.NotEmpty;
 import lombok.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @Data
 @NoArgsConstructor
@@ -13,7 +14,11 @@ public class VideoModel {
     @NotEmpty(message = "Title cannot be empty")
     private String title;
 
+    // Tên file lưu vào DB
     private String poster;
+
+    // File upload từ form
+    private MultipartFile posterFile;
 
     private int views;
 

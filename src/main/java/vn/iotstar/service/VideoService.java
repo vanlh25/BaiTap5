@@ -16,7 +16,7 @@ public interface VideoService {
 
     Video save(Video video); // insert/update
 
-    void delete(int videoId);
+    void deleteById(int videoId);
 
     long count();
 }
